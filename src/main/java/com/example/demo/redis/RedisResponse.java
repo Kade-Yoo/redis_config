@@ -9,12 +9,14 @@ import java.io.Serializable;
 @Getter
 @Setter
 @ToString
-public class RedisResponse implements Serializable {
+public class RedisResponse {
 
     private int a;
     private String b;
     private int c;
     private String d;
+
+    public RedisResponse() {}
 
     public RedisResponse(int a, String b, int c, String d) {
         this.a = a;
