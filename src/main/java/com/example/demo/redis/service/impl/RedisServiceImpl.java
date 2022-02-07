@@ -10,13 +10,20 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.*;
 
 @Service
 public class RedisServiceImpl implements RedisService {
 
     @Autowired
-    private RedisTemplate<?, ?> redisTemplate;
+    private RedisTemplate<String, String> redisTemplate;
+    private ZSetOperations<String, String> zSetOperations;
+
+    @PostConstruct
+    public void init() {
+        this.zSetOperations = redisTemplate.opsForZSet();
+    }
 
     @Override
     public void setRedis() {
@@ -27,7 +34,6 @@ public class RedisServiceImpl implements RedisService {
             responses.add(new RedisResponse(1 + i, "b" + i, 3 + i, "d" + i));
         }
 
-        ZSetOperations<String , String> zSetOperations = (ZSetOperations<String , String>) redisTemplate.opsForZSet();
         ObjectMapper objectMapper = new ObjectMapper();
         for (RedisResponse respons : responses) {
             if (Objects.isNull(respons)) {
@@ -44,20 +50,29 @@ public class RedisServiceImpl implements RedisService {
 
     @Override
     public List<RedisResponse> getRedis() {
-        List<RedisResponse> result = new ArrayList<>(Collections.emptyList());
-        ZSetOperations<String , String> zSetOperations = (ZSetOperations<String , String>) redisTemplate.opsForZSet();
-        Set<String> firstKey = zSetOperations.reverseRange("firstKey", 0, -1);
+        return reverseRange("firstKey", 0, -1, RedisResponse.class);
+    }
 
+    /**
+     * Redis ZSet reverseRange
+     *
+     * @param key 키
+     * @param start 범위 시작
+     * @param end 범위 끝
+     * @param classType 클래스타입
+     * @return 범위에 해당하는 List<T>조회
+     */
+    private <T> List<T> reverseRange(String key, long start, long end, Class<T> classType) {
+        List<T> result = new ArrayList<>(Collections.emptyList());
+        Set<String> strings = zSetOperations.reverseRange(key, start, end);
         ObjectMapper objectMapper = new ObjectMapper();
-        if (firstKey instanceof LinkedHashSet<?>) {
-            firstKey.forEach(value -> {
-                try {
-                    result.add(objectMapper.readValue(value, RedisResponse.class));
-                } catch (JsonProcessingException e) {
-                    e.printStackTrace();
-                }
-            });
-        }
+        Objects.requireNonNull(strings).forEach(str -> {
+            try {
+                result.add(objectMapper.readValue(str, classType));
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+        });
         return result;
     }
 }
